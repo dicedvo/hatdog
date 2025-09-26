@@ -350,12 +350,6 @@ function TaskModal({ task, isOpen, onClose, onSave, teamMembers }: {
 export default function TaskBoard() {
   const { user, organization, loading: authLoading, signOut, userRole } = useAuth();
   const router = useRouter();
-  
-  // Debug: Check if env vars are available
-  useEffect(() => {
-    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log('Has Anon Key:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-  }, []);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -505,12 +499,7 @@ export default function TaskBoard() {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-lg text-gray-600 mb-2">Loading TaskBoard...</div>
-          {!process.env.NEXT_PUBLIC_SUPABASE_URL && (
-            <p className="text-red-600 text-sm">Missing Supabase configuration</p>
-          )}
-        </div>
+        <div className="text-lg text-gray-600">Loading TaskBoard...</div>
       </div>
     );
   }
@@ -523,7 +512,7 @@ export default function TaskBoard() {
           <div className="flex justify-between items-center py-4">
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-gray-900">Hatdog</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Hatdog</h1>
                 {userRole && (
                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded capitalize font-medium">
                     {userRole}
@@ -532,9 +521,9 @@ export default function TaskBoard() {
               </div>
               <p className="text-sm text-gray-600">{organization?.name || 'Loading...'}</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {organization && (
-                <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg">
+                <div className="hidden md:flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg">
                   <span className="text-sm text-gray-600">Invite Code:</span>
                   <code className="font-mono font-bold text-gray-900">{organization.invite_code}</code>
                   <button
@@ -547,17 +536,17 @@ export default function TaskBoard() {
               )}
               <button
                 onClick={() => setIsTeamModalOpen(true)}
-                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 flex items-center gap-2 font-medium"
+                className="bg-gray-600 text-white p-2 sm:px-4 sm:py-2 rounded-lg hover:bg-gray-700 flex items-center gap-2 font-medium"
               >
                 <Users size={16} />
-                Team
+                <span className="hidden sm:inline">Team</span>
               </button>
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
+                className="bg-blue-600 text-white p-2 sm:px-4 sm:py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
               >
                 <Plus size={16} />
-                New Task
+                <span className="hidden sm:inline">New Task</span>
               </button>
               <button
                 onClick={signOut}
@@ -584,7 +573,7 @@ export default function TaskBoard() {
       )}
 
       {/* Kanban Board */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -592,7 +581,7 @@ export default function TaskBoard() {
           onDragEnd={handleDragEnd}
           modifiers={[restrictToWindowEdges]}
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {COLUMNS.map(column => {
               const columnTasks = tasks
                 .filter(task => task.status === column.id)
