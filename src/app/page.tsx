@@ -350,6 +350,12 @@ function TaskModal({ task, isOpen, onClose, onSave, teamMembers }: {
 export default function TaskBoard() {
   const { user, organization, loading: authLoading, signOut, userRole } = useAuth();
   const router = useRouter();
+  
+  // Debug: Check if env vars are available
+  useEffect(() => {
+    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log('Has Anon Key:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  }, []);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -499,7 +505,12 @@ export default function TaskBoard() {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Loading TaskBoard...</div>
+        <div className="text-center">
+          <div className="text-lg text-gray-600 mb-2">Loading TaskBoard...</div>
+          {!process.env.NEXT_PUBLIC_SUPABASE_URL && (
+            <p className="text-red-600 text-sm">Missing Supabase configuration</p>
+          )}
+        </div>
       </div>
     );
   }
