@@ -100,7 +100,7 @@ function TaskCard({ task, onEdit, onDelete, onView }: {
   };
 
   const priority = PRIORITIES.find(p => p.value === task.priority);
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
+  const isOverdue = task.due_date && new Date(task.due_date) < new Date();
 
   const isDone = task.status === 'done';
 
@@ -170,11 +170,11 @@ function TaskCard({ task, onEdit, onDelete, onView }: {
           )}
         </div>
         
-        {task.dueDate && (
+        {task.due_date && (
           <div className={`flex items-center gap-1 ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
             {isOverdue && <AlertCircle size={12} />}
             <Calendar size={12} />
-            <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+            <span>{new Date(task.due_date).toLocaleDateString()}</span>
           </div>
         )}
       </div>
