@@ -390,7 +390,6 @@ export default function TaskBoard() {
       setTasks(tasksData);
       setTeamMembers(teamData);
     } catch (error: any) {
-      console.error('Error loading data:', error);
       setError(error?.message || 'Failed to load data. Check your Supabase configuration in .env.local');
     } finally {
       setLoading(false);
@@ -421,7 +420,7 @@ export default function TaskBoard() {
     // Update task status in database
     tasksAPI.updatePosition(activeId, targetColumnId, 0).then(() => {
       loadData(); // Reload to get updated data
-    }).catch(console.error);
+    });
   }
 
   const handleCreateTask = async (taskData: any) => {
@@ -436,7 +435,6 @@ export default function TaskBoard() {
       });
       loadData();
     } catch (error: any) {
-      console.error('Error creating task:', error);
       setError(error?.message || 'Failed to create task. Check your Supabase configuration.');
     }
   };
@@ -457,7 +455,6 @@ export default function TaskBoard() {
       loadData();
       setEditingTask(undefined);
     } catch (error: any) {
-      console.error('Error updating task:', error);
       setError(error?.message || 'Failed to update task.');
     }
   };
@@ -474,7 +471,6 @@ export default function TaskBoard() {
       await tasksAPI.delete(deleteConfirm.taskId);
       loadData();
     } catch (error: any) {
-      console.error('Error deleting task:', error);
       setError(error?.message || 'Failed to delete task.');
     }
   };

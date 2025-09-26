@@ -74,18 +74,13 @@ export const teamAPI = {
 
   // Create new team member
   async create(member: Omit<TeamMember, 'id' | 'created_at' | 'updated_at'>): Promise<TeamMember> {
-    console.log('Creating team member:', member);
     const { data, error } = await supabase
       .from('team_members')
       .insert(member)
       .select()
       .single()
     
-    if (error) {
-      console.error('Error creating team member:', error);
-      throw error;
-    }
-    console.log('Team member created:', data);
+    if (error) throw error
     return data
   },
 
@@ -117,7 +112,6 @@ export const tasksAPI = {
 
   // Create new task
   async create(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> {
-    console.log('Creating task:', task);
     const { data, error } = await supabase
       .from('tasks')
       .insert(task)
@@ -127,11 +121,7 @@ export const tasksAPI = {
       `)
       .single()
     
-    if (error) {
-      console.error('Error creating task:', error);
-      throw error;
-    }
-    console.log('Task created:', data);
+    if (error) throw error
     return data
   },
 

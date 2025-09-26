@@ -187,7 +187,6 @@ export function TeamModal({ isOpen, onClose, onRefresh }: {
       const members = await teamAPI.getAll();
       setTeamMembers(members);
     } catch (error: any) {
-      console.error('Error loading team members:', error);
       setError(error?.message || 'Failed to load team members. Check your Supabase configuration.');
     } finally {
       setLoading(false);
@@ -201,7 +200,6 @@ export function TeamModal({ isOpen, onClose, onRefresh }: {
     try {
       if (editingMember) {
         // Update existing member (you'd need to add update method to teamAPI)
-        console.log('Update member:', editingMember.id, memberData);
       } else {
         // Create new member
         await teamAPI.create({
@@ -220,7 +218,6 @@ export function TeamModal({ isOpen, onClose, onRefresh }: {
       setShowForm(false);
       setEditingMember(undefined);
     } catch (error: any) {
-      console.error('Error saving team member:', error);
       setError(error?.message || 'Failed to save team member. Check your Supabase configuration.');
     }
   };
@@ -248,7 +245,6 @@ export function TeamModal({ isOpen, onClose, onRefresh }: {
       await loadTeamMembers();
       onRefresh();
     } catch (error: any) {
-      console.error('Error deleting team member:', error);
       setError(error?.message || 'Failed to delete team member.');
     }
   };

@@ -39,7 +39,6 @@ export default function SelectTeamPage() {
 
       setTeams(orgs);
     } catch (error) {
-      console.error('Error loading teams:', error);
     } finally {
       setLoading(false);
     }

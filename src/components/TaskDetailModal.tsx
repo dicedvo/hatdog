@@ -50,9 +50,7 @@ export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers }
       .eq('task_id', task.id)
       .order('created_at', { ascending: true });
     
-    if (error) {
-      console.error('Error loading comments:', error);
-    } else if (data) {
+    if (!error && data) {
       setComments(data);
     }
   };
@@ -83,10 +81,7 @@ export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers }
         content: newComment
       });
     
-    if (error) {
-      console.error('Error adding comment:', error);
-      alert(`Failed to add comment: ${error.message}`);
-    } else {
+    if (!error) {
       setNewComment('');
       loadComments();
     }

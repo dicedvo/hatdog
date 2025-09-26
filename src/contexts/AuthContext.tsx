@@ -88,7 +88,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
-      console.error('Error loading organization:', error);
       setOrganization(null);
       setUserRole(null);
     } finally {
