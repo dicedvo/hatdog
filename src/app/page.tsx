@@ -381,11 +381,13 @@ export default function TaskBoard() {
   }, [authLoading, user, organization, router]);
 
   const loadData = async () => {
+    if (!organization) return;
+    
     setError(null);
     try {
       const [tasksData, teamData] = await Promise.all([
-        tasksAPI.getAll(),
-        teamAPI.getAll()
+        tasksAPI.getAll(organization.id),
+        teamAPI.getAll(organization.id)
       ]);
       setTasks(tasksData);
       setTeamMembers(teamData);

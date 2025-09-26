@@ -68,10 +68,24 @@ export default function OnboardingPage() {
 
       await refreshOrganization();
       router.push('/');
-    } catch (err: any) {
-      setError(err.message === 'JSON object requested, multiple (or no) rows returned' 
-        ? 'Invalid invite code' 
-        : err.message || 'Failed to join team');
+    } catch (err) {
+      const errorMessage = (err as Error).message || 'Failed to join team';
+      
+      if (errorMessage.includes('duplicate key value violates unique constraint')) {
+        if (errorMessage.includes('team_members_user_org_unique')) {
+          setError('You are already a member of this team');
+        } else if (errorMessage.includes('team_members_email_org_unique')) {
+          setError('This email is already registered in this team');
+        } else if (errorMessage.includes('team_members_email_key')) {
+          setError('This email is already in use. Please run the database migration to allow multi-team membership.');
+        } else {
+          setError('You are already a member of this team');
+        }
+      } else if (errorMessage === 'JSON object requested, multiple (or no) rows returned') {
+        setError('Invalid invite code');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

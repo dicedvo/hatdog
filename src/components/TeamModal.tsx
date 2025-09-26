@@ -181,10 +181,12 @@ export function TeamModal({ isOpen, onClose, onRefresh }: {
   }, [isOpen]);
 
   const loadTeamMembers = async () => {
+    if (!organization) return;
+    
     setLoading(true);
     setError(null);
     try {
-      const members = await teamAPI.getAll();
+      const members = await teamAPI.getAll(organization.id);
       setTeamMembers(members);
     } catch (error: any) {
       setError(error?.message || 'Failed to load team members. Check your Supabase configuration.');

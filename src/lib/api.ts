@@ -60,13 +60,19 @@ export const organizationsAPI = {
 
 // Team Members API
 export const teamAPI = {
-  // Get all active team members
-  async getAll(): Promise<TeamMember[]> {
-    const { data, error } = await supabase
+  // Get all active team members for an organization
+  async getAll(organizationId?: string): Promise<TeamMember[]> {
+    let query = supabase
       .from('team_members')
       .select('*')
       .eq('is_active', true)
-      .order('name')
+    
+    // Filter by organization if provided
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId)
+    }
+    
+    const { data, error } = await query.order('name')
     
     if (error) throw error
     return data || []
@@ -96,18 +102,33 @@ export const teamAPI = {
 
 // Tasks API
 export const tasksAPI = {
-  // Get all tasks with assignee info
-  async getAll(): Promise<Task[]> {
-    const { data, error } = await supabase
-      .from('tasks')
-      .select(`
-        *,
-        assignee:team_members(*)
-      `)
-      .order('position')
+  // Get all tasks with assignee info for an organization
+  async getAll(organizationId?: string): Promise<Task[]> {
+    let query = supabase.from('tasks').select('*')
     
-    if (error) throw error
-    return data || []
+    // Filter by organization if provided
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId)
+    }
+    
+    const { data: tasks, error: tasksError } = await query.order('position')
+    
+    if (tasksError) throw tasksError
+    
+    // Fetch team members for the same organization
+    let membersQuery = supabase.from('team_members').select('*')
+    if (organizationId) {
+      membersQuery = membersQuery.eq('organization_id', organizationId)
+    }
+    const { data: members } = await membersQuery
+    
+    // Map assignees to tasks
+    const tasksWithAssignees = (tasks || []).map(task => ({
+      ...task,
+      assignee: task.assignee_id ? members?.find(m => m.id === task.assignee_id) : null
+    }))
+    
+    return tasksWithAssignees
   },
 
   // Create new task
@@ -115,14 +136,23 @@ export const tasksAPI = {
     const { data, error } = await supabase
       .from('tasks')
       .insert(task)
-      .select(`
-        *,
-        assignee:team_members(*)
-      `)
+      .select('*')
       .single()
     
     if (error) throw error
-    return data
+    
+    // Fetch assignee separately if needed
+    if (data.assignee_id) {
+      const { data: assignee } = await supabase
+        .from('team_members')
+        .select('*')
+        .eq('id', data.assignee_id)
+        .single()
+      
+      return { ...data, assignee }
+    }
+    
+    return { ...data, assignee: null }
   },
 
   // Update task
@@ -131,14 +161,23 @@ export const tasksAPI = {
       .from('tasks')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .select(`
-        *,
-        assignee:team_members(*)
-      `)
+      .select('*')
       .single()
     
     if (error) throw error
-    return data
+    
+    // Fetch assignee separately if needed
+    if (data.assignee_id) {
+      const { data: assignee } = await supabase
+        .from('team_members')
+        .select('*')
+        .eq('id', data.assignee_id)
+        .single()
+      
+      return { ...data, assignee }
+    }
+    
+    return { ...data, assignee: null }
   },
 
   // Delete task
@@ -161,14 +200,23 @@ export const tasksAPI = {
         updated_at: new Date().toISOString() 
       })
       .eq('id', id)
-      .select(`
-        *,
-        assignee:team_members(*)
-      `)
+      .select('*')
       .single()
     
     if (error) throw error
-    return data
+    
+    // Fetch assignee separately if needed
+    if (data.assignee_id) {
+      const { data: assignee } = await supabase
+        .from('team_members')
+        .select('*')
+        .eq('id', data.assignee_id)
+        .single()
+      
+      return { ...data, assignee }
+    }
+    
+    return { ...data, assignee: null }
   }
 }
 
