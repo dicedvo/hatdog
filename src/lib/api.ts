@@ -73,7 +73,7 @@ export const teamAPI = {
   },
 
   // Create new team member
-  async create(member: Omit<TeamMember, 'id' | 'createdAt' | 'updatedAt'>): Promise<TeamMember> {
+  async create(member: Omit<TeamMember, 'id' | 'created_at' | 'updated_at'>): Promise<TeamMember> {
     console.log('Creating team member:', member);
     const { data, error } = await supabase
       .from('team_members')
