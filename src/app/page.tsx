@@ -279,7 +279,7 @@ function TaskCard({ task, onEdit, onDelete, onView, onToggleComplete, columns }:
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className={`p-4 rounded-lg shadow-sm border cursor-pointer flex flex-col ${
+      className={`p-4 rounded-lg shadow-sm border cursor-pointer flex flex-col touch-manipulation ${
         isDone 
           ? 'bg-green-50 border-green-300' 
           : 'bg-white border-gray-200 hover:shadow-md'
@@ -288,8 +288,13 @@ function TaskCard({ task, onEdit, onDelete, onView, onToggleComplete, columns }:
     >
       {/* Top Row: Checkbox + Title + Actions */}
       <div className="flex items-start gap-2 mb-2">
-        <div className="cursor-move p-1 -m-1 hover:bg-gray-100 rounded mt-0.5" {...listeners} {...attributes}>
-          <svg width="10" height="16" viewBox="0 0 10 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-gray-400">
+        <div 
+          className="cursor-move p-1 -m-1 hover:bg-gray-100 rounded mt-0.5 touch-none select-none flex-shrink-0" 
+          {...listeners} 
+          {...attributes}
+          style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
+        >
+          <svg width="10" height="16" viewBox="0 0 10 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-gray-400 pointer-events-none">
             <circle cx="2" cy="2" r="1" fill="currentColor"/>
             <circle cx="7" cy="2" r="1" fill="currentColor"/>
             <circle cx="2" cy="8" r="1" fill="currentColor"/>
@@ -303,14 +308,14 @@ function TaskCard({ task, onEdit, onDelete, onView, onToggleComplete, columns }:
             e.stopPropagation();
             onToggleComplete(task);
           }}
-          className="mt-0.5 text-gray-400 hover:text-green-600"
+          className="mt-0.5 text-gray-400 hover:text-green-600 flex-shrink-0"
         >
           {isDone ? <CheckCircle2 size={20} className="text-green-600" /> : <Circle size={20} />}
         </button>
-        <h3 className={`font-medium text-base break-words flex-1 ${
+        <h3 className={`font-medium text-sm sm:text-base break-words flex-1 min-w-0 ${
           isDone ? 'line-through text-gray-500' : 'text-gray-900'
         }`}>{task.title}</h3>
-        <div className="flex gap-1 pointer-events-auto">
+        <div className="flex gap-1 pointer-events-auto flex-shrink-0">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -337,14 +342,14 @@ function TaskCard({ task, onEdit, onDelete, onView, onToggleComplete, columns }:
       </div>
       
       {/* Middle Row: Status + Priority + Assignee (left aligned) */}
-      <div className="flex items-center gap-2 mb-2 ml-12">
+      <div className="flex flex-wrap items-center gap-2 mb-2 ml-8 sm:ml-12">
         {columnName && (
-          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">
+          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium whitespace-nowrap">
             {columnName}
           </span>
         )}
         {priority && (
-          <span className={`px-2 py-0.5 rounded-full text-xs ${priority.color}`}>
+          <span className={`px-2 py-0.5 rounded-full text-xs whitespace-nowrap ${priority.color}`}>
             {priority.label}
           </span>
         )}
@@ -354,7 +359,7 @@ function TaskCard({ task, onEdit, onDelete, onView, onToggleComplete, columns }:
             {task.assignees.slice(0, 3).map((assignee, idx) => (
               <div
                 key={assignee.id}
-                className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium border border-white"
+                className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium border border-white flex-shrink-0"
                 style={{ backgroundColor: assignee.color, zIndex: 3 - idx }}
                 title={assignee.name}
               >
@@ -363,7 +368,7 @@ function TaskCard({ task, onEdit, onDelete, onView, onToggleComplete, columns }:
             ))}
             {task.assignees.length > 3 && (
               <div
-                className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium bg-gray-300 text-gray-700 border border-white"
+                className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium bg-gray-300 text-gray-700 border border-white flex-shrink-0"
                 title={`+${task.assignees.length - 3} more`}
               >
                 +{task.assignees.length - 3}
@@ -372,7 +377,7 @@ function TaskCard({ task, onEdit, onDelete, onView, onToggleComplete, columns }:
           </div>
         ) : task.assignee ? (
           <div
-            className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium"
+            className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
             style={{ backgroundColor: task.assignee.color }}
           >
             {task.assignee.initials}
@@ -382,11 +387,11 @@ function TaskCard({ task, onEdit, onDelete, onView, onToggleComplete, columns }:
       
       {/* Description */}
       {task.description && (
-        <p className="text-gray-600 text-sm mb-2 line-clamp-2 ml-12">{task.description}</p>
+        <p className="text-gray-600 text-sm mb-2 line-clamp-2 ml-8 sm:ml-12">{task.description}</p>
       )}
       
       {/* Bottom Row: Date (left) | Subtasks (right) */}
-      <div className="flex items-center justify-between text-xs text-gray-500 ml-12">
+      <div className="flex items-center justify-between text-xs text-gray-500 ml-8 sm:ml-12">
         <div className="flex items-center gap-2">
           {task.due_date && (
             <div className={`flex items-center gap-1 ${isOverdue ? 'text-red-600' : ''}`}>
@@ -631,8 +636,8 @@ export default function TaskBoard() {
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200,
-        tolerance: 8,
+        delay: 250,
+        tolerance: 5,
       },
     }),
     useSensor(KeyboardSensor, {
