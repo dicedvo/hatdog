@@ -127,5 +127,34 @@ export const emailTemplates = {
       </div>
     `,
     text: `Hi ${assigneeName},\n\nYour task "${taskTitle}" is due on ${dueDate}.\n\n${taskUrl ? `View it here: ${taskUrl}` : ''}`
+  }),
+
+  taskCompleted: (recipientName: string, taskTitle: string, completedByName: string, taskUrl?: string) => ({
+    subject: `✅ Task Completed: ${taskTitle}`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+        <p style="color: #666; font-size: 16px; line-height: 1.5;">
+          Hi ${recipientName},
+        </p>
+        <p style="color: #666; font-size: 16px; line-height: 1.5;">
+          Great news! ${completedByName} has completed the task:
+        </p>
+        <div style="background: #f0fdf4; padding: 16px; border-left: 4px solid #22c55e; margin: 24px 0;">
+          <strong style="color: #333; font-size: 18px;">✅ ${taskTitle}</strong>
+        </div>
+        ${taskUrl ? `
+          <p style="margin: 24px 0;">
+            <a href="${taskUrl}" style="color: #4F46E5; text-decoration: underline;">
+              View task details →
+            </a>
+          </p>
+        ` : ''}
+        <p style="color: #999; font-size: 14px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #eee;">
+          This email was sent from Hatdog, your team's task management tool.
+          <br>You received this because you created or were assigned to this task.
+        </p>
+      </div>
+    `,
+    text: `Hi ${recipientName},\n\nGreat news! ${completedByName} has completed the task: "${taskTitle}"\n\n${taskUrl ? `View details: ${taskUrl}` : ''}\n\n--\nThis email was sent from Hatdog, your team's task management tool.`
   })
 };

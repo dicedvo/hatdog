@@ -138,10 +138,35 @@ export const tasksAPI = {
     }
     const { data: members } = await membersQuery
     
-    // Map assignees to tasks
+    // Fetch multiple assignees for each task
+    let assigneesByTask: Record<string, any[]> = {};
+    if (tasks && tasks.length > 0) {
+      const taskIds = tasks.map(t => t.id);
+      const { data: assignees } = await supabase
+        .from('task_assignees')
+        .select(`
+          task_id,
+          team_member:team_members(*)
+        `)
+        .in('task_id', taskIds);
+      
+      // Group assignees by task_id
+      assignees?.forEach(a => {
+        if (!assigneesByTask[a.task_id]) {
+          assigneesByTask[a.task_id] = [];
+        }
+        if (a.team_member) {
+          assigneesByTask[a.task_id].push(a.team_member);
+        }
+      });
+    }
+    
+    // Map assignees and creators to tasks
     const tasksWithAssignees = (tasks || []).map(task => ({
       ...task,
-      assignee: task.assignee_id ? members?.find(m => m.id === task.assignee_id) : null
+      assignee: task.assignee_id ? members?.find(m => m.id === task.assignee_id) : null,
+      assignees: assigneesByTask[task.id] || [],
+      creator: task.created_by ? members?.find(m => m.user_id === task.created_by) : null
     }))
     
     return tasksWithAssignees
@@ -241,6 +266,48 @@ export const tasksAPI = {
     }
     
     return { ...data, assignee: null }
+  },
+
+  // Add assignees to a task
+  async addAssignees(taskId: string, memberIds: string[]): Promise<void> {
+    const assignees = memberIds.map(memberId => ({
+      task_id: taskId,
+      team_member_id: memberId
+    }));
+    
+    const { error } = await supabase
+      .from('task_assignees')
+      .insert(assignees)
+      .select();
+    
+    if (error && !error.message.includes('duplicate')) throw error;
+  },
+
+  // Remove assignee from a task
+  async removeAssignee(taskId: string, memberId: string): Promise<void> {
+    const { error } = await supabase
+      .from('task_assignees')
+      .delete()
+      .eq('task_id', taskId)
+      .eq('team_member_id', memberId);
+    
+    if (error) throw error;
+  },
+
+  // Update all assignees for a task (replace existing)
+  async updateAssignees(taskId: string, memberIds: string[]): Promise<void> {
+    // Delete existing assignees
+    const { error: deleteError } = await supabase
+      .from('task_assignees')
+      .delete()
+      .eq('task_id', taskId);
+    
+    if (deleteError) throw deleteError;
+    
+    // Add new assignees
+    if (memberIds.length > 0) {
+      await this.addAssignees(taskId, memberIds);
+    }
   }
 }
 

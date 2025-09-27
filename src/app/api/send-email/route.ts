@@ -75,6 +75,29 @@ export async function POST(request: NextRequest) {
         );
         break;
 
+      case 'task-completed':
+        const {
+          creatorName,
+          creatorEmail,
+          taskTitle: completedTaskTitle,
+          completedByName,
+          taskUrl: completedTaskUrl
+        } = data;
+        if (!creatorEmail) {
+          return NextResponse.json(
+            { error: 'Creator email not provided' },
+            { status: 400 }
+          );
+        }
+        recipient = creatorEmail;
+        emailContent = emailTemplates.taskCompleted(
+          creatorName || 'Team Member',
+          completedTaskTitle,
+          completedByName || 'A team member',
+          completedTaskUrl
+        );
+        break;
+
       default:
         return NextResponse.json(
           { error: 'Invalid email type' },

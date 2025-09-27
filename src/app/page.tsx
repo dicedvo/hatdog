@@ -348,14 +348,36 @@ function TaskCard({ task, onEdit, onDelete, onView, onToggleComplete, columns }:
             {priority.label}
           </span>
         )}
-        {task.assignee && (
+        {/* Show multiple assignees or single assignee for backward compatibility */}
+        {task.assignees && task.assignees.length > 0 ? (
+          <div className="flex -space-x-2">
+            {task.assignees.slice(0, 3).map((assignee, idx) => (
+              <div
+                key={assignee.id}
+                className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium border border-white"
+                style={{ backgroundColor: assignee.color, zIndex: 3 - idx }}
+                title={assignee.name}
+              >
+                {assignee.initials}
+              </div>
+            ))}
+            {task.assignees.length > 3 && (
+              <div
+                className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium bg-gray-300 text-gray-700 border border-white"
+                title={`+${task.assignees.length - 3} more`}
+              >
+                +{task.assignees.length - 3}
+              </div>
+            )}
+          </div>
+        ) : task.assignee ? (
           <div
             className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium"
             style={{ backgroundColor: task.assignee.color }}
           >
             {task.assignee.initials}
           </div>
-        )}
+        ) : null}
       </div>
       
       {/* Description */}
@@ -401,7 +423,8 @@ function TaskModal({ task, isOpen, onClose, onSave, teamMembers, defaultStatus, 
     description: '',
     status: 'todo',
     priority: 'medium',
-    assigneeId: '',
+    assigneeId: '',  // Keep for backward compatibility
+    assigneeIds: [] as string[],  // New: multiple assignees
     dueDate: ''
   });
 
@@ -413,6 +436,7 @@ function TaskModal({ task, isOpen, onClose, onSave, teamMembers, defaultStatus, 
         status: task.status,
         priority: task.priority,
         assigneeId: task.assignee_id || '',
+        assigneeIds: task.assignees?.map(a => a.id) || [],  // Load existing assignees
         dueDate: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''
       });
     } else {
@@ -422,6 +446,7 @@ function TaskModal({ task, isOpen, onClose, onSave, teamMembers, defaultStatus, 
         status: defaultStatus || 'todo',
         priority: 'medium',
         assigneeId: '',
+        assigneeIds: [],
         dueDate: ''
       });
     }
@@ -435,12 +460,22 @@ function TaskModal({ task, isOpen, onClose, onSave, teamMembers, defaultStatus, 
       description: formData.description,
       status: formData.status,
       priority: formData.priority,
-      assignee_id: formData.assigneeId || null,
+      assignee_id: formData.assigneeId || null,  // Keep for backward compatibility
+      assignee_ids: formData.assigneeIds,  // New: multiple assignees
       due_date: formData.dueDate || null,
     };
 
     onSave(taskData);
     onClose();
+  };
+
+  const toggleAssignee = (memberId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      assigneeIds: prev.assigneeIds.includes(memberId)
+        ? prev.assigneeIds.filter(id => id !== memberId)
+        : [...prev.assigneeIds, memberId]
+    }));
   };
 
   if (!isOpen) return null;
@@ -507,17 +542,32 @@ function TaskModal({ task, isOpen, onClose, onSave, teamMembers, defaultStatus, 
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">Assignee</label>
-            <select
-              value={formData.assigneeId}
-              onChange={(e) => setFormData({ ...formData, assigneeId: e.target.value })}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-black placeholder-gray-500 bg-white"
-            >
-              <option value="">Unassigned</option>
-              {teamMembers.map(member => (
-                <option key={member.id} value={member.id}>{member.name}</option>
-              ))}
-            </select>
+            <label className="block text-sm font-medium text-gray-900 mb-1">Assignees</label>
+            <div className="border border-gray-300 rounded-md p-2 max-h-32 overflow-y-auto bg-white">
+              {teamMembers.length > 0 ? (
+                teamMembers.map(member => (
+                  <label key={member.id} className="flex items-center gap-2 p-1 hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.assigneeIds.includes(member.id)}
+                      onChange={() => toggleAssignee(member.id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div className="flex items-center gap-2 flex-1">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                        style={{ backgroundColor: member.color }}
+                      >
+                        {member.initials}
+                      </div>
+                      <span className="text-sm text-gray-900">{member.name}</span>
+                    </div>
+                  </label>
+                ))
+              ) : (
+                <span className="text-sm text-gray-500">No team members available</span>
+              )}
+            </div>
           </div>
           
           <div>
@@ -781,19 +831,60 @@ export default function TaskBoard() {
       const column = columns.find(c => c.id === columnId) || columns[0];
       const status = column ? column.title.toLowerCase().replace(/\s+/g, '-') : 'todo';
       
+      // Remove assignee_ids from taskData to avoid column error
+      const { assignee_ids, ...taskDataWithoutAssignees } = taskData;
+      
       const newTask = await tasksAPI.create({
-        ...taskData,
+        ...taskDataWithoutAssignees,
         status: status,
         column_id: column?.id || columnId,
         organization_id: organization.id,
+        created_by: user?.id,  // Track who created the task
         position: tasks.filter(t => {
           if (t.column_id) return t.column_id === columnId;
           return t.status === columnId || t.status === status;
         }).length
       });
       
-      // Send email notification if task is assigned
-      if (taskData.assignee_id && newTask) {
+      // Add multiple assignees if provided
+      if (taskData.assignee_ids && taskData.assignee_ids.length > 0 && newTask) {
+        await tasksAPI.updateAssignees(newTask.id, taskData.assignee_ids);
+        
+        // Send email notifications to all assignees
+        const assignees = teamMembers.filter(m => taskData.assignee_ids.includes(m.id));
+        const currentMember = teamMembers.find(m => m.user_id === user?.id);
+        const assignerName = currentMember?.name || user?.email || 'A team member';
+        
+        for (const assignee of assignees) {
+          if (assignee?.email) {
+            fetch('/api/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'task-assigned',
+                data: {
+                  assigneeName: assignee.name || 'Team Member',
+                  assigneeEmail: assignee.email,
+                  taskTitle: taskData.title,
+                  assignerName: assignerName,
+                  taskUrl: window.location.href
+                }
+              })
+            })
+            .then(res => res.json())
+            .then(data => {
+              if (!data.success) {
+                console.error('Failed to send email:', data.error);
+              }
+            })
+            .catch(err => console.error('Error sending email:', err));
+          }
+        }
+      }
+      // Support legacy single assignee for backward compatibility
+      else if (taskData.assignee_id && newTask) {
+        await tasksAPI.updateAssignees(newTask.id, [taskData.assignee_id]);
+        
         const assignee = teamMembers.find(m => m.id === taskData.assignee_id);
         if (assignee?.email) {
           const currentMember = teamMembers.find(m => m.user_id === user?.id);
@@ -815,9 +906,7 @@ export default function TaskBoard() {
           })
           .then(res => res.json())
           .then(data => {
-            if (data.success) {
-              console.log('Email notification sent successfully');
-            } else {
+            if (!data.success) {
               console.error('Failed to send email:', data.error);
             }
           })
@@ -837,47 +926,101 @@ export default function TaskBoard() {
     
     setError(null);
     try {
-      const assigneeChanged = editingTask.assignee_id !== taskData.assignee_id;
+      // Get existing assignees for comparison
+      const existingAssigneeIds = editingTask.assignees?.map(a => a.id) || [];
+      
+      // Remove assignee_ids from update data to avoid column error
+      const { assignee_ids, ...updateData } = taskData;
       
       await tasksAPI.update(editingTask.id, {
-        title: taskData.title,
-        description: taskData.description,
-        status: taskData.status,
-        priority: taskData.priority,
-        assignee_id: taskData.assignee_id,
-        due_date: taskData.due_date
+        title: updateData.title,
+        description: updateData.description,
+        status: updateData.status,
+        priority: updateData.priority,
+        assignee_id: updateData.assignee_id,
+        due_date: updateData.due_date
       });
       
-      // Send email notification if assignee changed
-      if (assigneeChanged && taskData.assignee_id) {
-        const assignee = teamMembers.find(m => m.id === taskData.assignee_id);
-        if (assignee?.email) {
+      // Update multiple assignees if provided
+      if (taskData.assignee_ids) {
+        await tasksAPI.updateAssignees(editingTask.id, taskData.assignee_ids);
+        
+        // Find newly added assignees
+        const newAssignees = taskData.assignee_ids.filter((id: string) => !existingAssigneeIds.includes(id));
+        
+        // Send email notifications to newly assigned team members only
+        if (newAssignees.length > 0) {
           const currentMember = teamMembers.find(m => m.user_id === user?.id);
           const assignerName = currentMember?.name || user?.email || 'A team member';
           
-          fetch('/api/send-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'task-assigned',
-              data: {
-                assigneeName: assignee.name || 'Team Member',
-                assigneeEmail: assignee.email,
-                taskTitle: taskData.title,
-                assignerName: assignerName,
-                taskUrl: window.location.href
+          for (const memberId of newAssignees) {
+            const assignee = teamMembers.find(m => m.id === memberId);
+            if (assignee?.email) {
+              fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'task-assigned',
+                  data: {
+                    assigneeName: assignee.name || 'Team Member',
+                    assigneeEmail: assignee.email,
+                    taskTitle: taskData.title,
+                    assignerName: assignerName,
+                    taskUrl: window.location.href
+                  }
+                })
+              })
+              .then(res => res.json())
+              .then(data => {
+                if (!data.success) {
+                  console.error('Failed to send email:', data.error);
+                }
+              })
+              .catch(err => console.error('Error sending email:', err));
+            }
+          }
+        }
+      }
+      // Support legacy single assignee for backward compatibility
+      else if (taskData.assignee_id !== undefined) {
+        const assigneeChanged = editingTask.assignee_id !== taskData.assignee_id;
+        
+        // Update assignees table
+        if (taskData.assignee_id) {
+          await tasksAPI.updateAssignees(editingTask.id, [taskData.assignee_id]);
+        } else {
+          await tasksAPI.updateAssignees(editingTask.id, []);
+        }
+        
+        // Send email notification if assignee changed
+        if (assigneeChanged && taskData.assignee_id) {
+          const assignee = teamMembers.find(m => m.id === taskData.assignee_id);
+          if (assignee?.email) {
+            const currentMember = teamMembers.find(m => m.user_id === user?.id);
+            const assignerName = currentMember?.name || user?.email || 'A team member';
+            
+            fetch('/api/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'task-assigned',
+                data: {
+                  assigneeName: assignee.name || 'Team Member',
+                  assigneeEmail: assignee.email,
+                  taskTitle: taskData.title,
+                  assignerName: assignerName,
+                  taskUrl: window.location.href
+                }
+              })
+            })
+            .then(res => res.json())
+            .then(data => {
+              if (!data.success) {
+                console.error('Failed to send email:', data.error);
               }
             })
-          })
-          .then(res => res.json())
-          .then(data => {
-            if (data.success) {
-              console.log('Email notification sent successfully');
-            } else {
-              console.error('Failed to send email:', data.error);
-            }
-          })
-          .catch(err => console.error('Error sending email:', err));
+            .catch(err => console.error('Error sending email:', err));
+          }
         }
       }
       
@@ -917,10 +1060,80 @@ export default function TaskBoard() {
 
   const handleToggleComplete = async (task: Task) => {
     try {
+      const isCompleting = !task.completed;
+      
       await tasksAPI.update(task.id, {
-        completed: !task.completed,
-        completed_at: !task.completed ? new Date() : undefined
+        completed: isCompleting,
+        completed_at: isCompleting ? new Date() : undefined
       });
+      
+      // Send notification to task creator when task is completed
+      if (isCompleting && task.created_by && task.created_by !== user?.id) {
+        // Get the creator's info
+        const creator = task.creator || teamMembers.find(m => m.user_id === task.created_by);
+        if (creator?.email) {
+          const completedByMember = teamMembers.find(m => m.user_id === user?.id);
+          const completedByName = completedByMember?.name || user?.email || 'A team member';
+          
+          fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'task-completed',
+              data: {
+                creatorName: creator.name || 'Team Member',
+                creatorEmail: creator.email,
+                taskTitle: task.title,
+                completedByName: completedByName,
+                taskUrl: window.location.href
+              }
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (!data.success) {
+              console.error('Failed to send completion email:', data.error);
+            }
+          })
+          .catch(err => console.error('Error sending completion email:', err));
+        }
+      }
+      
+      // Also notify all assignees (except the one who completed it)
+      if (isCompleting && task.assignees && task.assignees.length > 0) {
+        const completedByMember = teamMembers.find(m => m.user_id === user?.id);
+        const completedByName = completedByMember?.name || user?.email || 'A team member';
+        
+        // Notify assignees who didn't complete the task
+        const assigneesToNotify = task.assignees.filter(a => a.user_id !== user?.id);
+        
+        for (const assignee of assigneesToNotify) {
+          if (assignee.email) {
+            fetch('/api/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'task-completed',
+                data: {
+                  creatorName: assignee.name || 'Team Member',
+                  creatorEmail: assignee.email,
+                  taskTitle: task.title,
+                  completedByName: completedByName,
+                  taskUrl: window.location.href
+                }
+              })
+            })
+            .then(res => res.json())
+            .then(data => {
+              if (!data.success) {
+                console.error('Failed to send completion email:', data.error);
+              }
+            })
+            .catch(err => console.error('Error sending completion email:', err));
+          }
+        }
+      }
+      
       loadData();
     } catch (error: any) {
       setError(error?.message || 'Failed to update task.');

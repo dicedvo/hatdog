@@ -28,8 +28,9 @@ export interface Task {
   description?: string;
   status: 'todo' | 'in-progress' | 'review' | 'done';
   priority: 'low' | 'medium' | 'high' | 'critical';
-  assignee_id?: string;
-  assignee?: TeamMember;
+  assignee_id?: string;  // Keep for backward compatibility
+  assignee?: TeamMember;  // Keep for backward compatibility
+  assignees?: TeamMember[];  // New: array of assignees
   due_date?: Date;
   position: number;
   created_at: Date;
@@ -37,6 +38,16 @@ export interface Task {
   column_id?: string;
   completed?: boolean;
   completed_at?: Date;
+  created_by?: string;  // User ID who created the task
+  creator?: TeamMember;  // Team member who created the task
+}
+
+export interface TaskAssignee {
+  id: string;
+  task_id: string;
+  team_member_id: string;
+  assigned_at: string;
+  assigned_by?: string;
 }
 
 export interface Column {
