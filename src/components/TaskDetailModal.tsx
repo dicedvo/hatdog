@@ -13,19 +13,20 @@ const PRIORITIES = [
   { value: 'critical', label: 'Critical', color: 'bg-red-200 text-red-800' }
 ];
 
-const STATUSES = [
+const DEFAULT_STATUSES = [
   { value: 'todo', label: 'To Do' },
   { value: 'in-progress', label: 'In Progress' },
   { value: 'review', label: 'Review' },
   { value: 'done', label: 'Done' }
 ];
 
-export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers }: {
+export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers, columns }: {
   task: Task | null;
   isOpen: boolean;
   onClose: () => void;
   onUpdate: () => void;
   teamMembers: TeamMember[];
+  columns?: any[];
 }) {
   const { user, organization } = useAuth();
   const [comments, setComments] = useState<TaskComment[]>([]);
@@ -174,15 +175,6 @@ export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers }
                   {priority.label}
                 </span>
               )}
-              <select
-                value={task.status}
-                onChange={(e) => handleUpdateTask({ status: e.target.value as any })}
-                className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-              >
-                {STATUSES.map(status => (
-                  <option key={status.value} value={status.value}>{status.label}</option>
-                ))}
-              </select>
               {task.status !== 'done' && (
                 <button
                   onClick={markAsDone}

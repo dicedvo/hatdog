@@ -34,6 +34,19 @@ export interface Task {
   position: number;
   created_at: Date;
   updated_at: Date;
+  column_id?: string;
+  completed?: boolean;
+  completed_at?: Date;
+}
+
+export interface Column {
+  id: string;
+  title: string;
+  position: number;
+  color: string;
+  organization_id: string;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 export interface Project {

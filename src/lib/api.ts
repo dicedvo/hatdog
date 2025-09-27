@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { Task, TeamMember, Project, Organization } from '@/types'
+import { Task, TeamMember, Project, Organization, Column } from '@/types'
 
 // Organizations API
 export const organizationsAPI = {
@@ -83,6 +83,22 @@ export const teamAPI = {
     const { data, error } = await supabase
       .from('team_members')
       .insert(member)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // Update team member
+  async update(id: string, updates: Partial<TeamMember>): Promise<TeamMember> {
+    const { data, error } = await supabase
+      .from('team_members')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
       .select()
       .single()
     
@@ -190,15 +206,23 @@ export const tasksAPI = {
     if (error) throw error
   },
 
-  // Update task position and status (for drag and drop)
-  async updatePosition(id: string, status: string, position: number): Promise<Task> {
+  // Update task position and column (for drag and drop)
+  async updatePosition(id: string, columnIdOrStatus: string, position: number): Promise<Task> {
+    const updateData: any = {
+      position,
+      updated_at: new Date().toISOString()
+    };
+    
+    // Check if it's a UUID (column_id) or status string
+    if (columnIdOrStatus.includes('-')) {
+      updateData.column_id = columnIdOrStatus;
+    } else {
+      updateData.status = columnIdOrStatus;
+    }
+    
     const { data, error } = await supabase
       .from('tasks')
-      .update({ 
-        status, 
-        position, 
-        updated_at: new Date().toISOString() 
-      })
+      .update(updateData)
       .eq('id', id)
       .select('*')
       .single()
@@ -217,6 +241,72 @@ export const tasksAPI = {
     }
     
     return { ...data, assignee: null }
+  }
+}
+
+// Columns API
+export const columnsAPI = {
+  // Get all columns for an organization
+  async getAll(organizationId: string): Promise<Column[]> {
+    const { data, error } = await supabase
+      .from('columns')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .order('position')
+    
+    if (error) throw error
+    return data || []
+  },
+
+  // Create new column
+  async create(column: Omit<Column, 'id' | 'created_at' | 'updated_at'>): Promise<Column> {
+    const { data, error } = await supabase
+      .from('columns')
+      .insert(column)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // Update column
+  async update(id: string, updates: Partial<Column>): Promise<Column> {
+    const { data, error } = await supabase
+      .from('columns')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // Delete column
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('columns')
+      .delete()
+      .eq('id', id)
+    
+    if (error) throw error
+  },
+
+  // Initialize default columns for new organization
+  async initializeDefaults(organizationId: string): Promise<void> {
+    const defaultColumns = [
+      { organization_id: organizationId, title: 'To Do', position: 0, color: 'gray' },
+      { organization_id: organizationId, title: 'In Progress', position: 1, color: 'blue' },
+      { organization_id: organizationId, title: 'Review', position: 2, color: 'yellow' },
+      { organization_id: organizationId, title: 'Done', position: 3, color: 'green' }
+    ]
+    
+    const { error } = await supabase
+      .from('columns')
+      .insert(defaultColumns)
+    
+    if (error) throw error
   }
 }
 

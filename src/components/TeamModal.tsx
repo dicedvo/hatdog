@@ -201,7 +201,13 @@ export function TeamModal({ isOpen, onClose, onRefresh }: {
     setError(null);
     try {
       if (editingMember) {
-        // Update existing member (you'd need to add update method to teamAPI)
+        // Update existing member
+        await teamAPI.update(editingMember.id, {
+          name: memberData.name,
+          email: memberData.email || null,
+          initials: memberData.initials,
+          color: memberData.color
+        });
       } else {
         // Create new member
         await teamAPI.create({
