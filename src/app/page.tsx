@@ -375,12 +375,11 @@ function TaskCard({ task, onEdit, onDelete, onView, onToggleComplete, columns }:
           )}
         </div>
         <div className="flex items-center gap-2">
-          {task.subtasks && task.subtasks.length > 0 && (
-            <div className="flex items-center gap-1">
-              <CheckSquare size={12} />
-              <span>{task.subtasks.filter(st => st.completed).length}/{task.subtasks.length}</span>
-            </div>
-          )}
+          {/* Placeholder for subtasks - uncomment when implemented */}
+          {/* <div className="flex items-center gap-1">
+            <CheckSquare size={12} />
+            <span>0/0</span>
+          </div> */}
         </div>
       </div>
     </div>
