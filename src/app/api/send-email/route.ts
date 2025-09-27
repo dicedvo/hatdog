@@ -98,6 +98,81 @@ export async function POST(request: NextRequest) {
         );
         break;
 
+      case 'task-comment':
+        const {
+          recipientName,
+          recipientEmail,
+          taskTitle: commentTaskTitle,
+          commenterName,
+          comment,
+          taskUrl: commentTaskUrl
+        } = data;
+        if (!recipientEmail) {
+          return NextResponse.json(
+            { error: 'Recipient email not provided' },
+            { status: 400 }
+          );
+        }
+        recipient = recipientEmail;
+        emailContent = emailTemplates.taskComment(
+          recipientName || 'Team Member',
+          commentTaskTitle,
+          commenterName || 'A team member',
+          comment,
+          commentTaskUrl
+        );
+        break;
+
+      case 'task-checklist':
+        const {
+          recipientName: checklistRecipientName,
+          recipientEmail: checklistRecipientEmail,
+          taskTitle: checklistTaskTitle,
+          adderName,
+          checklistItem,
+          taskUrl: checklistTaskUrl
+        } = data;
+        if (!checklistRecipientEmail) {
+          return NextResponse.json(
+            { error: 'Recipient email not provided' },
+            { status: 400 }
+          );
+        }
+        recipient = checklistRecipientEmail;
+        emailContent = emailTemplates.taskChecklist(
+          checklistRecipientName || 'Team Member',
+          checklistTaskTitle,
+          adderName || 'A team member',
+          checklistItem,
+          checklistTaskUrl
+        );
+        break;
+
+      case 'checklist-completed':
+        const {
+          recipientName: checklistCompletedRecipientName,
+          recipientEmail: checklistCompletedRecipientEmail,
+          taskTitle: checklistCompletedTaskTitle,
+          completerName,
+          checklistItem: completedChecklistItem,
+          taskUrl: checklistCompletedTaskUrl
+        } = data;
+        if (!checklistCompletedRecipientEmail) {
+          return NextResponse.json(
+            { error: 'Recipient email not provided' },
+            { status: 400 }
+          );
+        }
+        recipient = checklistCompletedRecipientEmail;
+        emailContent = emailTemplates.checklistCompleted(
+          checklistCompletedRecipientName || 'Team Member',
+          checklistCompletedTaskTitle,
+          completerName || 'A team member',
+          completedChecklistItem,
+          checklistCompletedTaskUrl
+        );
+        break;
+
       default:
         return NextResponse.json(
           { error: 'Invalid email type' },

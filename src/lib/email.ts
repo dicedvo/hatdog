@@ -156,5 +156,92 @@ export const emailTemplates = {
       </div>
     `,
     text: `Hi ${recipientName},\n\nGreat news! ${completedByName} has completed the task: "${taskTitle}"\n\n${taskUrl ? `View details: ${taskUrl}` : ''}\n\n--\nThis email was sent from Hatdog, your team's task management tool.`
+  }),
+
+  taskComment: (recipientName: string, taskTitle: string, commenterName: string, comment: string, taskUrl?: string) => ({
+    subject: `💬 New comment on: ${taskTitle}`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+        <p style="color: #666; font-size: 16px; line-height: 1.5;">
+          Hi ${recipientName},
+        </p>
+        <p style="color: #666; font-size: 16px; line-height: 1.5;">
+          ${commenterName} commented on the task "${taskTitle}":
+        </p>
+        <div style="background: #f8f9fa; padding: 16px; border-left: 4px solid #4F46E5; margin: 24px 0;">
+          <p style="color: #333; font-size: 16px; margin: 0;">${comment}</p>
+        </div>
+        ${taskUrl ? `
+          <p style="margin: 24px 0;">
+            <a href="${taskUrl}" style="color: #4F46E5; text-decoration: underline;">
+              View task and reply →
+            </a>
+          </p>
+        ` : ''}
+        <p style="color: #999; font-size: 14px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #eee;">
+          This email was sent from Hatdog, your team's task management tool.
+          <br>You received this because you're assigned to this task.
+        </p>
+      </div>
+    `,
+    text: `Hi ${recipientName},\n\n${commenterName} commented on "${taskTitle}":\n\n"${comment}"\n\n${taskUrl ? `View and reply: ${taskUrl}` : ''}\n\n--\nThis email was sent from Hatdog.`
+  }),
+
+  taskChecklist: (recipientName: string, taskTitle: string, adderName: string, checklistItem: string, taskUrl?: string) => ({
+    subject: `📋 Checklist updated: ${taskTitle}`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+        <p style="color: #666; font-size: 16px; line-height: 1.5;">
+          Hi ${recipientName},
+        </p>
+        <p style="color: #666; font-size: 16px; line-height: 1.5;">
+          ${adderName} added a checklist item to "${taskTitle}":
+        </p>
+        <div style="background: #f8f9fa; padding: 16px; border-left: 4px solid #4F46E5; margin: 24px 0;">
+          <p style="color: #333; font-size: 16px; margin: 0;">☐ ${checklistItem}</p>
+        </div>
+        ${taskUrl ? `
+          <p style="margin: 24px 0;">
+            <a href="${taskUrl}" style="color: #4F46E5; text-decoration: underline;">
+              View task →
+            </a>
+          </p>
+        ` : ''}
+        <p style="color: #999; font-size: 14px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #eee;">
+          This email was sent from Hatdog, your team's task management tool.
+          <br>You received this because you're assigned to this task.
+        </p>
+      </div>
+    `,
+    text: `Hi ${recipientName},\n\n${adderName} added a checklist item to "${taskTitle}":\n\n☐ ${checklistItem}\n\n${taskUrl ? `View task: ${taskUrl}` : ''}\n\n--\nThis email was sent from Hatdog.`
+  }),
+
+  checklistCompleted: (recipientName: string, taskTitle: string, completerName: string, checklistItem: string, taskUrl?: string) => ({
+    subject: `✅ Checklist item completed: ${taskTitle}`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+        <p style="color: #666; font-size: 16px; line-height: 1.5;">
+          Hi ${recipientName},
+        </p>
+        <p style="color: #666; font-size: 16px; line-height: 1.5;">
+          ${completerName} completed a checklist item in "${taskTitle}":
+        </p>
+        <div style="background: #f0fdf4; padding: 16px; border-left: 4px solid #22c55e; margin: 24px 0;">
+          <p style="color: #333; font-size: 16px; margin: 0;">✅ ${checklistItem}</p>
+        </div>
+        ${taskUrl ? `
+          <p style="margin: 24px 0;">
+            <a href="${taskUrl}" style="color: #4F46E5; text-decoration: underline;">
+              View task →
+            </a>
+          </p>
+        ` : ''}
+        <p style="color: #999; font-size: 14px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #eee;">
+          This email was sent from Hatdog, your team's task management tool.
+          <br>You received this because you're assigned to this task.
+        </p>
+      </div>
+    `,
+    text: `Hi ${recipientName},\n\n${completerName} completed a checklist item in "${taskTitle}":\n\n✅ ${checklistItem}\n\n${taskUrl ? `View task: ${taskUrl}` : ''}\n\n--\nThis email was sent from Hatdog.`
   })
 };

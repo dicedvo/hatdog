@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, Flag, CheckSquare, Square, MessageSquare, Send, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Calendar, User, Flag, CheckSquare, Square, MessageSquare, Send, Trash2, Check, ChevronDown } from 'lucide-react';
 import { Task, TaskComment, Subtask, TeamMember } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { tasksAPI } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
 const PRIORITIES = [
@@ -34,13 +35,94 @@ export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers, 
   const [newComment, setNewComment] = useState('');
   const [newSubtask, setNewSubtask] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const assigneeDropdownRef = useRef<HTMLDivElement>(null);
+  const [localAssignees, setLocalAssignees] = useState<TeamMember[]>([]);
 
   useEffect(() => {
     if (task && isOpen) {
       loadComments();
       loadSubtasks();
+      // Initialize local assignees from task
+      setLocalAssignees(task.assignees || []);
+      
+      // Set up realtime subscriptions for this task
+      const channel = supabase
+        .channel(`task-${task.id}-updates`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'task_comments',
+            filter: `task_id=eq.${task.id}`
+          },
+          () => {
+            loadComments();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'subtasks',
+            filter: `task_id=eq.${task.id}`
+          },
+          () => {
+            loadSubtasks();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tasks',
+            filter: `id=eq.${task.id}`
+          },
+          () => {
+            // Refresh task data when it changes
+            onUpdate();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'task_assignees',
+            filter: `task_id=eq.${task.id}`
+          },
+          () => {
+            // Refresh task data when assignees change
+            onUpdate();
+          }
+        )
+        .subscribe();
+      
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [task, isOpen]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (assigneeDropdownRef.current && !assigneeDropdownRef.current.contains(event.target as Node)) {
+        setShowAssigneeDropdown(false);
+      }
+    }
+    
+    if (showAssigneeDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAssigneeDropdown]);
 
   const loadComments = async () => {
     if (!task) return;
@@ -83,6 +165,31 @@ export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers, 
       });
     
     if (!error) {
+      // Notify all assignees about the new comment
+      const assigneesToNotify = task.assignees?.filter(a => a.user_id !== user.id) || [];
+      const commenterMember = teamMembers.find(m => m.user_id === user.id);
+      const commenterName = commenterMember?.name || user.email || 'A team member';
+      
+      for (const assignee of assigneesToNotify) {
+        if (assignee.email) {
+          fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'task-comment',
+              data: {
+                recipientName: assignee.name || 'Team Member',
+                recipientEmail: assignee.email,
+                taskTitle: task.title,
+                commenterName: commenterName,
+                comment: newComment,
+                taskUrl: window.location.href
+              }
+            })
+          });
+        }
+      }
+      
       setNewComment('');
       loadComments();
     }
@@ -112,18 +219,72 @@ export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers, 
       });
     
     if (!error) {
+      // Notify all assignees about the new checklist item
+      const assigneesToNotify = task.assignees?.filter(a => a.user_id !== user?.id) || [];
+      const adderMember = teamMembers.find(m => m.user_id === user?.id);
+      const adderName = adderMember?.name || user?.email || 'A team member';
+      
+      for (const assignee of assigneesToNotify) {
+        if (assignee.email) {
+          fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'task-checklist',
+              data: {
+                recipientName: assignee.name || 'Team Member',
+                recipientEmail: assignee.email,
+                taskTitle: task.title,
+                adderName: adderName,
+                checklistItem: newSubtask,
+                taskUrl: window.location.href
+              }
+            })
+          });
+        }
+      }
+      
       setNewSubtask('');
       loadSubtasks();
     }
   };
 
   const handleToggleSubtask = async (subtask: Subtask) => {
+    const isCompleting = !subtask.completed;
+    
     const { error } = await supabase
       .from('subtasks')
-      .update({ completed: !subtask.completed })
+      .update({ completed: isCompleting })
       .eq('id', subtask.id);
     
-    if (!error) {
+    if (!error && isCompleting && task) {
+      // Notify all assignees when a checklist item is completed
+      const assigneesToNotify = task.assignees?.filter(a => a.user_id !== user?.id) || [];
+      const completerMember = teamMembers.find(m => m.user_id === user?.id);
+      const completerName = completerMember?.name || user?.email || 'A team member';
+      
+      for (const assignee of assigneesToNotify) {
+        if (assignee.email) {
+          fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'checklist-completed',
+              data: {
+                recipientName: assignee.name || 'Team Member',
+                recipientEmail: assignee.email,
+                taskTitle: task.title,
+                completerName: completerName,
+                checklistItem: subtask.title,
+                taskUrl: window.location.href
+              }
+            })
+          });
+        }
+      }
+      
+      loadSubtasks();
+    } else if (!error) {
       loadSubtasks();
     }
   };
@@ -152,8 +313,94 @@ export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers, 
     }
   };
 
-  const markAsDone = () => {
-    handleUpdateTask({ status: 'done' });
+  const markAsDone = async () => {
+    if (!task) return;
+    
+    await handleUpdateTask({ completed: true, completed_at: new Date() });
+    
+    // Notify all assignees and creator when task is marked done
+    const assigneesToNotify = task.assignees?.filter(a => a.user_id !== user?.id) || [];
+    const completerMember = teamMembers.find(m => m.user_id === user?.id);
+    const completerName = completerMember?.name || user?.email || 'A team member';
+    
+    // Also notify creator if different from completer
+    if (task.created_by && task.created_by !== user?.id) {
+      const creator = task.creator || teamMembers.find(m => m.user_id === task.created_by);
+      if (creator?.email) {
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'task-completed',
+            data: {
+              creatorName: creator.name || 'Team Member',
+              creatorEmail: creator.email,
+              taskTitle: task.title,
+              completedByName: completerName,
+              taskUrl: window.location.href
+            }
+          })
+        });
+      }
+    }
+    
+    // Notify all assignees
+    for (const assignee of assigneesToNotify) {
+      if (assignee.email) {
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'task-completed',
+            data: {
+              creatorName: assignee.name || 'Team Member',
+              creatorEmail: assignee.email,
+              taskTitle: task.title,
+              completedByName: completerName,
+              taskUrl: window.location.href
+            }
+          })
+        });
+      }
+    }
+  };
+
+  const handleToggleAssignee = async (memberId: string) => {
+    if (!task) return;
+    
+    try {
+      const member = teamMembers.find(m => m.id === memberId);
+      if (!member) return;
+      
+      // Update local state immediately for instant UI feedback
+      const currentAssigneeIds = localAssignees.map(a => a.id);
+      let newAssignees: TeamMember[];
+      let newAssigneeIds: string[];
+      
+      if (currentAssigneeIds.includes(memberId)) {
+        // Remove the assignee
+        newAssignees = localAssignees.filter(a => a.id !== memberId);
+        newAssigneeIds = newAssignees.map(a => a.id);
+      } else {
+        // Add the assignee
+        newAssignees = [...localAssignees, member];
+        newAssigneeIds = newAssignees.map(a => a.id);
+      }
+      
+      // Update local state immediately
+      setLocalAssignees(newAssignees);
+      
+      // Update assignees in database
+      await tasksAPI.updateAssignees(task.id, newAssigneeIds);
+      
+      // Don't close dropdown - keep it open for multiple selections
+      // Refresh the parent data
+      onUpdate();
+    } catch (error) {
+      console.error('Failed to update assignees:', error);
+      // Revert local state on error
+      setLocalAssignees(task.assignees || []);
+    }
   };
 
   if (!isOpen || !task) return null;
@@ -232,7 +479,7 @@ export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers, 
                     type="text"
                     value={newSubtask}
                     onChange={(e) => setNewSubtask(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddSubtask()}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddSubtask()}
                     placeholder="Add a checklist item..."
                     className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-black placeholder-gray-500 bg-white"
                   />
@@ -284,7 +531,7 @@ export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers, 
                     type="text"
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
                     placeholder="Write a comment..."
                     className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-black placeholder-gray-500 bg-white"
                   />
@@ -302,23 +549,83 @@ export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers, 
 
             {/* Sidebar - 1 column */}
             <div className="space-y-4">
-              <div>
+              <div className="relative" ref={assigneeDropdownRef}>
                 <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                   <User size={16} />
                   Assignee
                 </h4>
-                {task.assignee ? (
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                      style={{ backgroundColor: task.assignee.color }}
-                    >
-                      {task.assignee.initials}
+                <button
+                  onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
+                  className="w-full text-left border border-gray-300 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors"
+                >
+                  {localAssignees && localAssignees.length > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex -space-x-2">
+                        {localAssignees.slice(0, 3).map((assignee) => (
+                          <div
+                            key={assignee.id}
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium border border-white"
+                            style={{ backgroundColor: assignee.color }}
+                          >
+                            {assignee.initials}
+                          </div>
+                        ))}
+                        {localAssignees.length > 3 && (
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium border border-white bg-gray-300 text-gray-700">
+                            +{localAssignees.length - 3}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-sm text-gray-900">
+                        {localAssignees.map(a => a.name).join(', ')}
+                      </span>
                     </div>
-                    <span className="text-sm text-gray-900">{task.assignee.name}</span>
+                  ) : (
+                    <span className="text-sm text-gray-500">Unassigned</span>
+                  )}
+                </button>
+                
+                {/* Assignee Dropdown */}
+                {showAssigneeDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-64 overflow-y-auto">
+                    <div className="sticky top-0 bg-white border-b border-gray-200 px-3 py-2 flex justify-between items-center">
+                      <span className="text-xs text-gray-600">Select team members</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowAssigneeDropdown(false)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    {teamMembers.map(member => {
+                      // Check local assignees for immediate UI feedback
+                      const isAssigned = localAssignees.some(a => a.id === member.id);
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleToggleAssignee(member.id);
+                          }}
+                          className="w-full px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-left transition-colors cursor-pointer"
+                        >
+                          <div className="w-5 h-5 border border-gray-300 rounded flex items-center justify-center">
+                            {isAssigned && <Check size={14} className="text-blue-600" />}
+                          </div>
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                            style={{ backgroundColor: member.color }}
+                          >
+                            {member.initials}
+                          </div>
+                          <span className="text-sm text-gray-900">{member.name}</span>
+                        </button>
+                      );
+                    })}
                   </div>
-                ) : (
-                  <span className="text-sm text-gray-500">Unassigned</span>
                 )}
               </div>
 
@@ -327,9 +634,12 @@ export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers, 
                   <Calendar size={16} />
                   Due Date
                 </h4>
-                <span className="text-sm text-gray-900">
-                  {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}
-                </span>
+                <input
+                  type="date"
+                  value={task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''}
+                  onChange={(e) => handleUpdateTask({ due_date: e.target.value ? new Date(e.target.value) : undefined })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                />
               </div>
 
               <div>
@@ -340,7 +650,7 @@ export function TaskDetailModal({ task, isOpen, onClose, onUpdate, teamMembers, 
                 <select
                   value={task.priority}
                   onChange={(e) => handleUpdateTask({ priority: e.target.value as any })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                 >
                   {PRIORITIES.map(p => (
                     <option key={p.value} value={p.value}>{p.label}</option>

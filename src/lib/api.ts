@@ -162,11 +162,33 @@ export const tasksAPI = {
     }
     
     // Map assignees and creators to tasks
-    const tasksWithAssignees = (tasks || []).map(task => ({
-      ...task,
-      assignee: task.assignee_id ? members?.find(m => m.id === task.assignee_id) : null,
-      assignees: assigneesByTask[task.id] || [],
-      creator: task.created_by ? members?.find(m => m.user_id === task.created_by) : null
+    const tasksWithAssignees = await Promise.all((tasks || []).map(async task => {
+      let taskAssignees = assigneesByTask[task.id] || [];
+      
+      // Migrate legacy single assignee if exists and not already in assignees
+      if (task.assignee_id && taskAssignees.length === 0) {
+        // Auto-migrate the single assignee to the new system
+        try {
+          await supabase
+            .from('task_assignees')
+            .insert({ task_id: task.id, team_member_id: task.assignee_id });
+          
+          // Add the migrated assignee to the current list
+          const legacyAssignee = members?.find(m => m.id === task.assignee_id);
+          if (legacyAssignee) {
+            taskAssignees = [legacyAssignee];
+          }
+        } catch (e) {
+          // Ignore if already exists or other error
+        }
+      }
+      
+      return {
+        ...task,
+        assignee: null, // Don't use legacy assignee field anymore
+        assignees: taskAssignees,
+        creator: task.created_by ? members?.find(m => m.user_id === task.created_by) : null
+      };
     }))
     
     return tasksWithAssignees

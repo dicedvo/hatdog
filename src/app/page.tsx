@@ -14,6 +14,7 @@ import { TeamModal } from '@/components/TeamModal';
 import { TaskDetailModal } from '@/components/TaskDetailModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 const DEFAULT_COLUMNS = [
   { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
@@ -134,7 +135,12 @@ function DroppableColumn({ column, tasks, children, onRename, onDelete, onAddTas
   return (
     <div
       ref={setSortableNodeRef}
-      style={style}
+      style={{
+        ...style,
+        height: '70vh',
+        maxHeight: '600px',
+        minHeight: '400px'
+      }}
       className={`bg-white rounded-lg shadow-sm transition-all flex flex-col flex-shrink-0 ${
         isOver ? 'bg-blue-50 ring-2 ring-blue-400' : ''
       }`}
@@ -142,14 +148,13 @@ function DroppableColumn({ column, tasks, children, onRename, onDelete, onAddTas
       <div 
         ref={setDroppableNodeRef}
         style={{
-          minHeight: '400px',
           minWidth: '280px',
           maxWidth: '280px',
           touchAction: 'none'
         }}
         className="flex flex-col h-full"
       >
-      <div className="p-4 pb-3 border-b border-gray-100">
+      <div className="p-4 pb-3 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-1">
             <div className="cursor-move p-1 -m-1 hover:bg-gray-100 rounded" {...listeners} {...attributes}>
@@ -232,17 +237,19 @@ function DroppableColumn({ column, tasks, children, onRename, onDelete, onAddTas
           </div>
         </div>
       </div>
-      <div className="flex-1 p-4 overflow-y-auto">
+      <div className="flex-1 p-4 overflow-y-auto min-h-0">
         {children}
       </div>
       {onAddTask && (
-        <button
-          onClick={() => onAddTask(column.id)}
-          className="m-4 mt-0 p-2.5 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all"
-        >
-          <Plus size={18} className="text-gray-600" />
-          Add task
-        </button>
+        <div className="border-t border-gray-100 p-4 flex-shrink-0">
+          <button
+            onClick={() => onAddTask(column.id)}
+            className="w-full p-2.5 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold transition-all"
+          >
+            <Plus size={18} className="text-gray-600" />
+            Add task
+          </button>
+        </div>
       )}
       </div>
     </div>
@@ -653,6 +660,67 @@ export default function TaskBoard() {
       router.push('/select-team');
     } else if (!authLoading && user && organization) {
       loadData();
+      
+      // Set up realtime subscriptions for live updates
+      const channel = supabase
+        .channel(`org-${organization.id}-updates`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tasks',
+            filter: `organization_id=eq.${organization.id}`
+          },
+          () => {
+            // Reload tasks when any task changes
+            loadData();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'task_assignees'
+          },
+          () => {
+            // Reload when assignees change
+            loadData();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'team_members',
+            filter: `organization_id=eq.${organization.id}`
+          },
+          () => {
+            // Reload when team members change
+            loadData();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'columns',
+            filter: `organization_id=eq.${organization.id}`
+          },
+          () => {
+            // Reload when columns change
+            loadData();
+          }
+        )
+        .subscribe();
+      
+      // Cleanup subscription on unmount or when org changes
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [authLoading, user, organization, router]);
 
