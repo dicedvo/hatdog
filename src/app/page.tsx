@@ -849,7 +849,7 @@ export default function TaskBoard() {
     try {
       await tasksAPI.update(task.id, {
         completed: !task.completed,
-        completed_at: !task.completed ? new Date().toISOString() : null
+        completed_at: !task.completed ? new Date() : undefined
       });
       loadData();
     } catch (error: any) {
