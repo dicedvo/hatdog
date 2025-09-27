@@ -139,7 +139,7 @@ export const tasksAPI = {
     const { data: members } = await membersQuery
     
     // Fetch multiple assignees for each task
-    let assigneesByTask: Record<string, any[]> = {};
+    const assigneesByTask: Record<string, any[]> = {};
     if (tasks && tasks.length > 0) {
       const taskIds = tasks.map(t => t.id);
       const { data: assignees } = await supabase
