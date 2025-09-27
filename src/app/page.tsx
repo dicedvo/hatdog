@@ -781,7 +781,7 @@ export default function TaskBoard() {
       const column = columns.find(c => c.id === columnId) || columns[0];
       const status = column ? column.title.toLowerCase().replace(/\s+/g, '-') : 'todo';
       
-      await tasksAPI.create({
+      const newTask = await tasksAPI.create({
         ...taskData,
         status: status,
         column_id: column?.id || columnId,
@@ -791,6 +791,40 @@ export default function TaskBoard() {
           return t.status === columnId || t.status === status;
         }).length
       });
+      
+      // Send email notification if task is assigned
+      if (taskData.assignee_id && newTask) {
+        const assignee = teamMembers.find(m => m.id === taskData.assignee_id);
+        if (assignee?.email) {
+          const currentMember = teamMembers.find(m => m.user_id === user?.id);
+          const assignerName = currentMember?.name || user?.email || 'A team member';
+          
+          fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'task-assigned',
+              data: {
+                assigneeName: assignee.name || 'Team Member',
+                assigneeEmail: assignee.email,
+                taskTitle: taskData.title,
+                assignerName: assignerName,
+                taskUrl: window.location.href
+              }
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              console.log('Email notification sent successfully');
+            } else {
+              console.error('Failed to send email:', data.error);
+            }
+          })
+          .catch(err => console.error('Error sending email:', err));
+        }
+      }
+      
       loadData();
       setNewTaskColumnId(null);
     } catch (error: any) {
@@ -803,6 +837,8 @@ export default function TaskBoard() {
     
     setError(null);
     try {
+      const assigneeChanged = editingTask.assignee_id !== taskData.assignee_id;
+      
       await tasksAPI.update(editingTask.id, {
         title: taskData.title,
         description: taskData.description,
@@ -811,6 +847,40 @@ export default function TaskBoard() {
         assignee_id: taskData.assignee_id,
         due_date: taskData.due_date
       });
+      
+      // Send email notification if assignee changed
+      if (assigneeChanged && taskData.assignee_id) {
+        const assignee = teamMembers.find(m => m.id === taskData.assignee_id);
+        if (assignee?.email) {
+          const currentMember = teamMembers.find(m => m.user_id === user?.id);
+          const assignerName = currentMember?.name || user?.email || 'A team member';
+          
+          fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'task-assigned',
+              data: {
+                assigneeName: assignee.name || 'Team Member',
+                assigneeEmail: assignee.email,
+                taskTitle: taskData.title,
+                assignerName: assignerName,
+                taskUrl: window.location.href
+              }
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              console.log('Email notification sent successfully');
+            } else {
+              console.error('Failed to send email:', data.error);
+            }
+          })
+          .catch(err => console.error('Error sending email:', err));
+        }
+      }
+      
       loadData();
       setEditingTask(undefined);
     } catch (error: any) {
